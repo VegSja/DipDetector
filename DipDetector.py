@@ -16,18 +16,38 @@ style.use('ggplot')
 #Setting up values
 number_of_dates_back = 30
 number_of_lowest_values = 30
-tickers = []
+
 
 def render_header(header):
     os.system('clear')
     print("TEAM SPACEBEAR PRODUCTIONS \nAll rights reserved \n \n" + header + "\n")
 
-def save_tickers_to_file():
-    with open("Tickers.pickle", "wb") as f:
-        pickle.dump(tickers, f)
-    print("Saving tickers to file....")
+def save_tickers_to_file(input_array, reload):
+    tickers = []    
+    if reload == False:
+        #Read from file to combine
+        try: 
+            with open("Tickers.pickle", "rb") as f:
+                tickers = pickle.load(f)
+            os.system("rm Tickers.pickle")
+        except IOError:
+            print("File does not exist")
+        for i in range(0, len(input_array)):
+            tickers.append(input_array[i])
+        #Write to file
+        with open("Tickers.pickle", "wb") as f:
+            pickle.dump(tickers, f)
+        print("Saving tickers " + str(len(tickers)) + " to file....")
 
-def get_index_tickers(link, table_class, row_start, column_number):
+    elif reload == True:
+        os.system("rm Tickers.pickle")
+        with open("Tickers.pickle", "wb") as f:
+            pickle.dump(input_array, f)
+        print("Saving tickers " + str(len(input_array)) + " to file.... AS RELOAD")
+
+
+def get_index_tickers(link, table_class, row_start, column_number, reload_tickers):
+    tickers = []
     resp = requests.get(link)
     soup = bs.BeautifulSoup(resp.text, "lxml")
     #Gets the table html
@@ -40,18 +60,37 @@ def get_index_tickers(link, table_class, row_start, column_number):
         ticker = ticker.replace('.', '-')
         tickers.append(ticker)
         print("Retriving ticker: " + ticker)
+    save_tickers_to_file(tickers , reload_tickers)
+    print("------------------------------Finished ticker ----------------------------------------------")
 
-def get_data_from_yahoo():
+def submit_own_tickers():
+    render_header("TICKER SUBMITTER")
+    ticker_input = raw_input("Please enter your tickers with a space inbetween(Ex: TSLA AAPL AMZN)")
+    save_tickers_to_file(ticker_input.split(), False)
+    print(ticker_input.split())
+    raw_input("Press Enter to return...")
+
+
+
+def get_data_from_yahoo(reload_file):
     #Loads tickers from tickers.pickle
-    with open("Tickers.pickle", "rb") as f:
-        tickers = pickle.load(f)
-        print("Successfully loaded " + str(len(tickers)) + " tickers from file")
+    try:
+        with open("Tickers.pickle", "rb") as f:
+            tickers = pickle.load(f)
+            print("Successfully loaded " + str(len(tickers)) + " tickers from file")
+    except:
+        print("Could not locate Tickers.pickle file")
     #Makes directory to store all stock data
-    if os.path.exists("stock_dfs"):
-        os.system('rm -r stock_dfs')
-    if not os.path.exists("stock_dfs"):
-        os.makedirs("stock_dfs")
-        print("Made directory stock_dfs")
+    if reload_file == True:
+        if os.path.exists("stock_dfs"):
+            os.system('rm -r stock_dfs')
+        if not os.path.exists("stock_dfs"):
+            os.makedirs("stock_dfs")
+            print("Made directory stock_dfs")
+    elif reload_file == False:
+        if not os.path.exists("stock_dfs"):
+            os.makedirs("stock_dfs")
+            print("Made directory stock_dfs")
     
     start = dt.datetime(2010,1,1)
     print("Today's date: " + str(dt.date.today()))
@@ -76,7 +115,7 @@ def visualize_ticker(desired_ticker):
     plt.title(desired_ticker)
     plt.show()
 
-def print_tickers():
+def print_tickers_data():
     listOfFiles = os.listdir('./stock_dfs')
     pattern = "*.csv"
     i = 0
@@ -87,6 +126,14 @@ def print_tickers():
     print("Number of tickers:" + str(i))
     raw_input("Press Enter to return...")
     return
+
+def print_tickers():
+    with open("Tickers.pickle", "rb") as f:
+        tickers = pickle.load(f)
+    for ticker in tickers:
+        print(ticker)
+    print("You have " + str(len(tickers)) + " tickers in total")
+    raw_input("Press Enter to return...")
 
 def calculate_dip():
     render_header("DIP CALCULATION")
@@ -153,20 +200,22 @@ def start():
     while True:
         render_header("MENU")
         print(dt.date.today())
-        user_input = input("What do you want to do? \n 1. Reload tickers and ticker data \n 2. Reload ticker data \n 3. Visualize ticker \n 4. Print all tickers availible \n 5. Calculate dip \n \n")
+        user_input = input("What do you want to do? \n 1. Reload tickers and ticker data (Might take some minutes) \n 2. Load ticker data (Quick if you have the tickers) \n 3. Submit ticker \n 4. Visualize ticker \n 5. Print all tickers with data availible \n 6. Print every ticker\n 7. Calculate dip \n \n")
         if str(user_input) == "1":
-            get_index_tickers("https://www.advfn.com/nasdaq/nasdaq.asp", 'market tab1', 2, 1)
-            get_index_tickers("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", 'wikitable sortable', 1, 0)
-            print("-----------------------Finished tickerretrieve-------------------------- \n Number of tickers: " + str(len(tickers)))
-            save_tickers_to_file()
-            get_data_from_yahoo()
+            get_index_tickers("https://www.advfn.com/nasdaq/nasdaq.asp", 'market tab1', 2, 1, True)
+            get_index_tickers("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", 'wikitable sortable', 1, 0, False)
+            get_data_from_yahoo(True)
         elif str(user_input) == "2":
-            get_data_from_yahoo()
+            get_data_from_yahoo(False)
         elif str(user_input) == "3":
-            visualize_ticker("")
+            submit_own_tickers()
         elif str(user_input) == "4":
-            print_tickers()
+            visualize_ticker("")
         elif str(user_input) == "5":
+            print_tickers_data()
+        elif str(user_input) == "6":
+            print_tickers()
+        elif str(user_input) == "7":
             calculate_dip()
        
 start()
