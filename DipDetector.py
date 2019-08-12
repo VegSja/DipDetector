@@ -14,8 +14,13 @@ style.use('ggplot')
 
 
 #Setting up values
-detection_range = 1
+number_of_dates_back = 30
+number_of_lowest_values = 30
 tickers = []
+
+def render_header(header):
+    os.system('clear')
+    print("TEAM SPACEBEAR PRODUCTIONS \nAll rights reserved \n \n" + header + "\n")
 
 def save_tickers_to_file():
     with open("Tickers.pickle", "wb") as f:
@@ -42,6 +47,8 @@ def get_data_from_yahoo():
         tickers = pickle.load(f)
         print("Successfully loaded " + str(len(tickers)) + " tickers from file")
     #Makes directory to store all stock data
+    if os.path.exists("stock_dfs"):
+        os.system('rm -r stock_dfs')
     if not os.path.exists("stock_dfs"):
         os.makedirs("stock_dfs")
         print("Made directory stock_dfs")
@@ -64,7 +71,8 @@ def visualize_ticker(desired_ticker):
     if desired_ticker == "":
         desired_ticker = raw_input("Which ticker do you want to visualize? \n \n Ticker: ")
     df = pd.read_csv('stock_dfs/{}.csv'.format(str(desired_ticker)))
-    df.plot(x='Date', y='Close')
+    print(df.tail())
+    df.plot(x='Date', y='Adj Close')
     plt.title(desired_ticker)
     plt.show()
 
@@ -81,6 +89,15 @@ def print_tickers():
     return
 
 def calculate_dip():
+    render_header("DIP CALCULATION")
+    detection_range = 1
+    #Ask about sensitivity of dipdetection
+    user_choice = raw_input("How large would you like the detection margin be? \n(Lower yields more results) \nDefault: " + str(detection_range) + "\n \nDipMargin: ")
+    try:
+        detection_range = int(user_choice)
+    except:
+        return
+
     Dip_list = []
     #Get dataframe for this ticker
     listOfFiles = os.listdir('./stock_dfs')
@@ -97,16 +114,27 @@ def calculate_dip():
             most_recent_row = df.iloc[number_of_rows - 1]
             print("Most recent value of current ticker: " + str(most_recent_row['Adj Close']))
 
-            #Sort adj_close for this ticker. Lowest values at the top
-            df.sort_values('Adj Close', inplace=True)
-            print("Lowest value of current ticker: " + str(df.iloc[0]['Adj Close']))
+            #Get the previous days Adj Close values
+            most_recent_values = []
+            for i in range(0, number_of_dates_back):
+                most_recent_values.append(df.iloc[number_of_rows - 1 - i]['Adj Close'])
+            #print("Most recent values of current ticker: \n ")
+            #print(most_recent_values)
 
-            # Compare todays value with other low values
-            if most_recent_row['Adj Close'] - detection_range < df.iloc[0]['Adj Close']:
-                print("DIP DETECTED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                Dip_list.append("{}".format(entry).replace('.csv', ''))
-            else:
-                print("NO DIP")
+            # #Sort adj_close for this ticker. Lowest values at the top. Add lowest values to a list
+            # df.sort_values('Adj Close', inplace=True)
+            # lowest_values = []
+            # for i in range(0, number_of_lowest_values):
+            #     lowest_values.append(df.iloc[i]['Adj Close'])
+            # print("Lowest values of current ticker: \n ")
+            # print(lowest_values)
+
+            # Compare todays value with recent values if they are marginly lower a dip is detected
+            for i in range(0, len(most_recent_values)):
+                if most_recent_row['Adj Close'] + detection_range < most_recent_values[i]:
+                    print("RESULT: DIP DETECTED")
+                    Dip_list.append("{}".format(entry).replace('.csv', ''))
+                    break
     if len(Dip_list) > 0:
         print("\n These tickers are experiencing a dip: \n")
         for i in range(0, len(Dip_list)):
@@ -117,11 +145,13 @@ def calculate_dip():
                 visualize_ticker(Dip_list[i])
         else:
             return
+    else:
+        print("No tickers are experiencing a dip")
     raw_input("Press Enter to return...")
 
 def start():
     while True:
-        os.system("clear")
+        render_header("MENU")
         print(dt.date.today())
         user_input = input("What do you want to do? \n 1. Reload tickers and ticker data \n 2. Reload ticker data \n 3. Visualize ticker \n 4. Print all tickers availible \n 5. Calculate dip \n \n")
         if str(user_input) == "1":
